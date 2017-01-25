@@ -9,55 +9,12 @@ else
 fi
 
 # build the oroot install hook
-cat <<EOF > oroot_install
-#!/bin/ash
-
-build() {
-  add_dir /lroot
-  add_dir /troot
-  add_binary zramctl
-  add_binary mkswap
-  add_binary swapon
-  add_binary free
-EOF
 
 # check which binary to add to oroot install hook
-if [ "$1" = "btrfs" ]; then
-   cat <<EOF >> oroot_install
-  add_binary mkfs.btrfs
-  add_binary btrfs
-EOF
-fi
 
 # finish writing the oroot install hook
-cat <<EOF >>oroot_install
-  add_binary mkfs.ext2
-  add_binary nproc
-  add_runscript
-}
-
-help() {
-  cat <<HELPEOF
-This hook overlays a tmpfs on top of root removing persistent writes to root
-HELPEOF
-}
-EOF
-
 
 # output header for oroot hook + overlay_flush header
-cat <<EOF > oroot
-#!/bin/ash
-run_hook() {
-  if [ "\${oroot}" ]; then
-     fsck_root() {
-       echo &>/dev/null
-     }
-     if [ ! -b "/dev/zram0" ]; then
-        modprobe zram num_devices=\$((\$(nproc)+2))
-     fi
-     echo "#!/bin/bash
-           mkdir /run/oroot
-EOF
 
 # generate part of the overlay_flush script
 genOverlayFlush() {
@@ -67,58 +24,35 @@ genOverlayFlush() {
     case "$a" in
       cryptdevice*UUID*)
         crypt_root="${a#cryptdevice=UUID=}"
-        cat <<EOF >> oroot
-           if [ \"\$oroot\" = \"live\" ]; then
-              cryptsetup open \"/dev/disk/by-uuid/${crypt_root%:*}\" \"${crypt_root#*:}\" \\
-EOF
+	#cat
         ;;
       cryptdevice)
         crypt_root="${a#cryptdevice=}"
-        cat <<EOF >> oroot
-           if [ \"\$oroot\" = \"live\" ]; then
-              cryptsetup open \"${crypt_root%:*}\" \"${crypt_root#*:}\" \\
-EOF
+        #cat
         ;;
       cryptkey*UUID)
         cryptkey_root="${a#cryptkey=UUID=}"
-        cat <<EOF >> oroot
-                --key-file \\\$(mkdir \"/run/oroot-key\"; mount -U \"${cryptkey_root%%:*}\" \"/run/oroot-key\"; echo \"/run/oroot${cryptkey_root##*:}\")
-         fi
-EOF
+        #cat
         unset cryptkey_root
         ;;
       cryptkey*)
         cryptkey_root="${a#cryptkey=}"
-        cat <<EOF >> oroot
-                --key-file \\\$(mkdir \"/run/oroot-key\"; mount \"${cryptkey_root%%:*}\" \"/run/oroot-key\"; echo \"/run/oroot${cryptkey_root##*:}\")
-EOF
+        #cat
         unset cryptkey_root
         ;;
       root*UUID*)
         # need to newline before fi for cryptsetup to break \
         if [ "$crypt_root" ]; then
-        cat <<EOF >> oroot
-        
-           fi
-           mount -U \"${a#root=UUID=}\" \\
-EOF
-          else
-        cat <<EOF >> oroot
-           mount -U \"${a#root=UUID=}\" \\
-EOF
+          #cat
+        else
+          #cat
         fi
         ;;
       root*)
         if [ "$crypt_root" ]; then
-        cat <<EOF >> oroot
-        
-           fi
-           mount --source \"${a#root=}\" \\
-EOF
-         else
-        cat <<EOF >> oroot        
-           mount --source \"${a#root=}\" \\
-EOF
+          #cat
+        else
+          #cat
         fi
         ;;
     esac
@@ -130,47 +64,10 @@ EOF
 genOverlayFlush </proc/cmdline
 
 # use mount options
-cat <<EOF >> oroot
-             -o $(awk '{if ($2 == "/") {print $4}}' /etc/fstab) \"/run/oroot\"
-EOF
-
-if [ "$1" = "btrfs" ]; then
-   cat <<EOF >> oroot
-           if [ \"\$oroot\" = \"live\" ]; then
-              btrfs subvolume snapshot / /oroot-snap
-              cd /oroot-snap
-            else
-              cd /
-           fi
-EOF
- else
-   cat <<EOF >> oroot
-           cd /
-EOF
-fi
 
 # rsync code
-cat <<EOF >> oroot
-           rsync -ax --delete --no-whole-file --inplace \\\$PWD/ /run/oroot \\
-             --exclude boot --exclude dev \\
-             --exclude mnt --exclude proc --exclude run \\
-             --exclude sys --exclude tmp --exclude usr/bin/overlay_flush;
-EOF
-
-if [ "$1" = "btrfs" ]; then
-   cat <<EOF >> oroot
-           btrfs subvolume snapshot -r \"/run/oroot\" \"/run/oroot/snapshots/\\\$(date +%s)\"
-           if [ \"\$oroot\" = \"live\" ]; then
-              btrfs subvolume delete /oroot-snap
-           fi
-EOF
-fi
 
 # unmount and remove drive
-cat <<EOF >> oroot
-           umount /run/oroot &&
-           rm -r /run/oroot &&
-EOF
 
 # close the device in overlay_flush
 closeOverlayFlush() {
@@ -178,26 +75,13 @@ closeOverlayFlush() {
   for a in $b; do
     case "$a" in
       cryptkey*)
-        cat <<EOF >> oroot
-           if [ \"\$oroot\" = \"live\" ]; then
-              umount \"/run/oroot-key\"
-              rm -r \"/run/oroot-key\"
-           fi
-EOF
+        #cat
         ;;
       cryptdevice*UUID*)
-        cat <<EOF >> oroot
-           if [ \"\$oroot\" = \"live\" ]; then
-              cryptsetup close \"${a#cryptdevice=UUID=*:}\"
-           fi
-EOF
+        #cat
         ;;
       cryptdevice*)
-        cat <<EOF >> oroot
-           if [ \"\$oroot\" = \"live\" ]; then
-              cryptsetup close \"${a#cryptdevice=*:}\"
-           fi
-EOF
+        #cat
         ;;
     esac
   done;
@@ -208,10 +92,6 @@ EOF
 closeOverlayFlush </proc/cmdline
 
 # setuid for overlay_flush
-cat <<EOF >> oroot
-         " > /overlay_flush
-     chmod ug+x /overlay_flush
-EOF
 
 # check and mount root device
 checkRootDev() {
@@ -219,16 +99,10 @@ checkRootDev() {
   for a in $b; do
     case "$a" in
       root*UUID*)
-        cat <<EOF >> oroot
-     poll_device "/dev/disk/by-uuid/${a#root=UUID=}" 20
-     mount -U "${a#root=UUID=}" /lroot
-EOF
+        #cat
         ;;
       root*)
-        cat <<EOF >> oroot
-     poll_device "${a#root=}" 20
-     mount "${a#root=}" /lroot
-EOF
+        #cat
         ;;
     esac
   done;
@@ -238,56 +112,19 @@ EOF
 checkRootDev </proc/cmdline
 
 if [ "$1" = "btrfs" ]; then
-   cat <<EOF >> oroot
-     root_snap=\$(ls /lroot/snapshots | sort -nr | head -1)
-     export root_snap
-EOF
+   #cat
 fi
 
 
 # read $oroot and generate ram device
-cat <<EOF >> oroot
-     case "\$oroot" in
-        live)
-          zdevice=\$(zramctl -f -s \$(free -m | awk '/Mem/ {print int(\$2*2)"M"}') -a lzo -t \$(nproc))
-EOF
 
 #  generate either btrfs or ext2 device
-if [ "$1" = "btrfs" ]; then
-   cat <<EOF >> oroot
-          mkfs.btrfs "\$zdevice"
-EOF
- else
-   cat <<EOF >> oroot
-          mkfs.ext2 -q "\$zdevice"
-EOF
-fi
 
 # mount zdevice
-cat <<EOF >> oroot
-          mount "\$zdevice" /troot
-          export zdevice
-EOF
 
 # if using btrfs + oroot=live; load most recent snapshot
-if [ "$1" = "btrfs" ]; then
-   cat <<EOF >> oroot
-          btrfs send "/lroot/snapshots/\$root_snap" | \\
-            btrfs receive /troot
-          btrfs subvolume snapshot "/troot/\$root_snap" \\
-            "/troot/\${root_snap}_root"
-EOF
- else
-   cat <<EOF >> oroot
-          cp -a /lroot/* /troot/
-EOF
-fi
 
 # unmount /troot when using oroot=live
-cat <<EOF >> oroot
-          umount /troot
-          umount /lroot
-EOF
 
 # close device if oroot=live
 closeDevice() {
@@ -295,14 +132,10 @@ closeDevice() {
   for a in $b; do
     case "$a" in
       cryptdevice*UUID*)
-        cat <<EOF >> oroot
-          cryptsetup close "${a#cryptdevice=UUID=*:}"
-EOF
+        #cat
         ;;
       cryptdevice*)
-        cat <<EOF >> oroot
-          cryptsetup close "${a#cryptdevice=*:}"
-EOF
+        #cat
         ;;
     esac
   done
@@ -312,52 +145,5 @@ EOF
 closeDevice </proc/cmdline
 
 # finish setting up ram device
-cat <<EOF >> oroot
-          oroot_mount() {
-EOF
-
-if [ "$1" = "btrfs" ]; then
-   cat <<EOF >> oroot
-            mount -o subvol="\${root_snap}_root" "\$zdevice" "\$1"
-EOF
- else
-   cat <<EOF >> oroot
-            mount "\$zdevice" "\$1"
-EOF
-fi
-
-
-cat <<EOF >> oroot
-            mv /overlay_flush \$1/usr/bin/
-          }
-          ;;
-        compressed)
-          zdevice=\$(zramctl -f -s \$(free -m | awk '/Mem/ {print int(\$2*2)"M"}') -a lzo -t \$(nproc))
-          mkfs.ext2 -q "\$zdevice"
-          mount "\$zdevice" "/troot"
-          mkdir /troot/upper /troot/work
-          oroot_mount() {
-EOF
-
-cat <<EOF >> oroot
-            mount oroot -t overlay -o lowerdir=/lroot,upperdir=/troot/upper,workdir=/troot/work "\$1"
-            mv /overlay_flush \$1/usr/bin/
-          }
-          ;;
-        *)
-          mount troot -t tmpfs -o size=\$(free -m | awk '/Mem/ {print int(\$2)"M"}') /troot
-          mkdir /troot/upper /troot/work
-          oroot_mount() {
-            mount oroot -t overlay -o lowerdir=/lroot,upperdir=/troot/upper,workdir=/troot/work "\$1"
-            mv /overlay_flush \$1/usr/bin/
-          }
-          ;;
-     esac
-EOF
 
 # close oroot hook
-cat <<EOF >> oroot
-     mount_handler=oroot_mount
-  fi;
-}
-EOF
