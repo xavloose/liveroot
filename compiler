@@ -1,5 +1,13 @@
 #!/bin/bash
 
+if [ "$1" = "liveroot" ]; then
+
+elif [ "$1" = "sysoroot" ]; then
+
+else
+
+fi
+
 # build the oroot install hook
 cat <<EOF > oroot_install
 #!/bin/ash

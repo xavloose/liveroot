@@ -1,4 +1,4 @@
-# liveroot
+# liveroot - Currently being changed - The following info doesn't apply
 Initcpio hooks for overlayfs ontop of root
 
 Tired of the slow I/O when running Linux on a USB OS?
